@@ -1,0 +1,169 @@
+{
+  "name": "Deploy LP — atendimentoweb",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "deploy-lp-matcon",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-node",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "deploy-lp-matcon"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "slug-check",
+              "leftValue": "={{ $json.body.subdominio }}",
+              "rightValue": "^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$|^[a-z0-9]{1,2}$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "base64-check",
+              "leftValue": "={{ $json.body.html_base64 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "validate-node",
+      "name": "Validar Slug e HTML",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "command": "=echo \"{{ $('Webhook').item.json.body.html_base64 }}\" | base64 -d > /lps/{{ $('Webhook').item.json.body.subdominio }}.html && echo 'ok'"
+      },
+      "id": "ssh-node",
+      "name": "SSH — Gravar LP",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [680, 200],
+      "credentials": {
+        "sshPassword": {
+          "id": "SSH_CREDENTIAL_ID",
+          "name": "VPS Hostinger SSH"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, url: 'https://' + $('Webhook').item.json.body.subdominio + '.atendimentoweb.com', subdominio: $('Webhook').item.json.body.subdominio }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "respond-ok-node",
+      "name": "Respond — OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\"ok\": false, \"erro\": \"Slug inválido ou HTML ausente. Use apenas letras minúsculas, números e hífen.\"}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-erro-node",
+      "name": "Respond — Erro Validação",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [680, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, erro: 'Falha ao gravar o arquivo no servidor: ' + $json.stderr }) }}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "respond-ssh-erro-node",
+      "name": "Respond — Erro SSH",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 340]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validar Slug e HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Slug e HTML": {
+      "main": [
+        [
+          {
+            "node": "SSH — Gravar LP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond — Erro Validação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SSH — Gravar LP": {
+      "main": [
+        [
+          {
+            "node": "Respond — OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond — Erro SSH",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1"
+}
