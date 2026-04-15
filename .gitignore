@@ -1,0 +1,3 @@
+# Não versionar arquivos HTML dos clientes (ficam no volume do servidor)
+*.html
+!404.html
