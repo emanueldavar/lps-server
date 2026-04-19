@@ -1,0 +1,79 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "list-lps",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c1000001-list-0001-0001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-400, 0],
+      "webhookId": "list-lps"
+    },
+    {
+      "parameters": {
+        "command": "ls /data/lps/ 2>/dev/null | grep '\\.html$' | sort || echo ''"
+      },
+      "id": "c1000001-list-0001-0001-000000000002",
+      "name": "SSH — Listar",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [-160, 0],
+      "credentials": {
+        "sshPassword": {
+          "id": "AZ8IOAWA4ZHSxPgr",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $('SSH — Listar').first().json.stdout || '';\nconst files = output.trim().split('\\n').filter(f => f && f.endsWith('.html'));\nconst slugMap = {};\nfor (const file of files) {\n  if (file.endsWith('-termos.html')) {\n    const s = file.replace('-termos.html', '');\n    if (!slugMap[s]) slugMap[s] = { slug: s, hasMain: false, hasTermos: false, hasPrivacidade: false };\n    slugMap[s].hasTermos = true;\n  } else if (file.endsWith('-privacidade.html')) {\n    const s = file.replace('-privacidade.html', '');\n    if (!slugMap[s]) slugMap[s] = { slug: s, hasMain: false, hasTermos: false, hasPrivacidade: false };\n    slugMap[s].hasPrivacidade = true;\n  } else {\n    const s = file.replace('.html', '');\n    if (!slugMap[s]) slugMap[s] = { slug: s, hasMain: false, hasTermos: false, hasPrivacidade: false };\n    slugMap[s].hasMain = true;\n  }\n}\nconst lps = Object.values(slugMap).map(lp => ({\n  ...lp,\n  url: 'https://' + lp.slug + '.atendimentoweb.com'\n}));\nreturn [{ json: { lps } }];"
+      },
+      "id": "c1000001-list-0001-0001-000000000003",
+      "name": "Code — Parsear",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [80, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, lps: $json.lps }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "c1000001-list-0001-0001-000000000004",
+      "name": "Respond — OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [320, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "SSH — Listar", "type": "main", "index": 0 }]]
+    },
+    "SSH — Listar": {
+      "main": [[{ "node": "Code — Parsear", "type": "main", "index": 0 }]]
+    },
+    "Code — Parsear": {
+      "main": [[{ "node": "Respond — OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e1bc0642b13d975a7f303eed768c37cfe3c27e644bc41e8b737330a3a615f666"
+  }
+}

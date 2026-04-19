@@ -1,0 +1,79 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "delete-lp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "d2000002-del-0002-0002-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-400, 0],
+      "webhookId": "delete-lp"
+    },
+    {
+      "parameters": {
+        "jsCode": "const slug = ($('Webhook').first().json.body.slug || '').trim();\nconst SLUG_RE = /^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$|^[a-z0-9]{1,2}$/;\nif (!slug || !SLUG_RE.test(slug)) {\n  return [{ json: { valid: false, command: 'echo invalid_slug', slug: '' } }];\n}\nconst cmd = 'rm -f /data/lps/' + slug + '.html /data/lps/' + slug + '-termos.html /data/lps/' + slug + '-privacidade.html && echo deleted_ok';\nreturn [{ json: { valid: true, command: cmd, slug } }];"
+      },
+      "id": "d2000002-del-0002-0002-000000000002",
+      "name": "Code — Build Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-160, 0]
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.command }}"
+      },
+      "id": "d2000002-del-0002-0002-000000000003",
+      "name": "SSH — Deletar LP",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [80, 0],
+      "credentials": {
+        "sshPassword": {
+          "id": "AZ8IOAWA4ZHSxPgr",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: $('Code — Build Delete').item.json.valid, slug: $('Code — Build Delete').item.json.slug }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "d2000002-del-0002-0002-000000000004",
+      "name": "Respond — OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [320, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Code — Build Delete", "type": "main", "index": 0 }]]
+    },
+    "Code — Build Delete": {
+      "main": [[{ "node": "SSH — Deletar LP", "type": "main", "index": 0 }]]
+    },
+    "SSH — Deletar LP": {
+      "main": [[{ "node": "Respond — OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e1bc0642b13d975a7f303eed768c37cfe3c27e644bc41e8b737330a3a615f666"
+  }
+}
