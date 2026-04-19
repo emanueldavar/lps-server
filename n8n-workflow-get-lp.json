@@ -1,0 +1,79 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "get-lp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "e3000003-get-0003-0003-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-400, 0],
+      "webhookId": "get-lp"
+    },
+    {
+      "parameters": {
+        "jsCode": "const slug = ($('Webhook').first().json.body.slug || '').trim();\nconst SLUG_RE = /^[a-z0-9][a-z0-9-]{0,30}[a-z0-9]$|^[a-z0-9]{1,2}$/;\nif (!slug || !SLUG_RE.test(slug)) {\n  return [{ json: { valid: false, command: 'echo INVALID', slug: '' } }];\n}\nconst cmd = 'base64 -w 0 /data/lps/' + slug + '.html';\nreturn [{ json: { valid: true, command: cmd, slug } }];"
+      },
+      "id": "e3000003-get-0003-0003-000000000002",
+      "name": "Code — Build Get",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-160, 0]
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.command }}"
+      },
+      "id": "e3000003-get-0003-0003-000000000003",
+      "name": "SSH — Ler LP",
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [80, 0],
+      "credentials": {
+        "sshPassword": {
+          "id": "AZ8IOAWA4ZHSxPgr",
+          "name": "SSH Password account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: $('Code — Build Get').item.json.valid, slug: $('Code — Build Get').item.json.slug, content_base64: ($('SSH — Ler LP').item.json.stdout || '').trim() }) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "e3000003-get-0003-0003-000000000004",
+      "name": "Respond — OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [320, 0]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Code — Build Get", "type": "main", "index": 0 }]]
+    },
+    "Code — Build Get": {
+      "main": [[{ "node": "SSH — Ler LP", "type": "main", "index": 0 }]]
+    },
+    "SSH — Ler LP": {
+      "main": [[{ "node": "Respond — OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e1bc0642b13d975a7f303eed768c37cfe3c27e644bc41e8b737330a3a615f666"
+  }
+}
